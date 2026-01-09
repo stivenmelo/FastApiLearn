@@ -3,10 +3,12 @@ from datetime import datetime
 import zoneinfo
 from models import Transaction, Invioce
 from db import create_all_tables
-from .routers import customers 
+from .routers import customers, transactions, plans
 
 app = FastAPI(lifespan = create_all_tables)
 app.include_router(customers.router)
+app.include_router(transactions.router)
+app.include_router(plans.router)
 
 @app.get('/')
 async def root():
@@ -28,9 +30,6 @@ async def time(iso_code: str):
     tz = zoneinfo.ZoneInfo(timezone_str)
     return {"time": datetime.now(tz)}
 
-@app.post('/transactions')
-async def create_transactions(transaction_data: Transaction):
-    return transaction_data
 
 @app.post('/invioces')
 async def create_invioces(invioce_data: Invioce):

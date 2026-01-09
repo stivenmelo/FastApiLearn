@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException, status
-
-from models import Customer, CustomerCreate, CustomerUpdate
+from models import Customer, CustomerCreate, CustomerPlan, CustomerUpdate, Plan
 from db import SessionDep
 from sqlmodel import select 
 
@@ -58,3 +57,28 @@ async def customer_whit_id(id:int, session: SessionDep):
     for customer in results:
         return customer
     raise HTTPException(status_code=404, detail="Customer not found")
+
+
+@router.post('/customers/{customer_id}/plans/{plan_id}',response_model = CustomerPlan, tags = ['customers'])
+async def suscribe_customer_to_plan(customer_id: int ,plan_id: int,session: SessionDep):
+    customer_db = session.get(Customer, customer_id)
+    pland_db = session.get(Plan, plan_id)
+    
+    
+    if not customer_db or not pland_db:
+        raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "The customer or plan doesn't exist")
+    
+    customer_pland_db = CustomerPlan(plan_id = pland_db.id, customer_id = customer_db.id)
+    session.add(customer_pland_db)
+    session.commit()
+    session.refresh(customer_pland_db)
+    return customer_pland_db
+
+
+@router.get('/customers/{customer_id}/plans/',response_model = list[Plan], tags = ['customers'])
+async def customer_plans(customer_id: int ,session: SessionDep):
+    customer_db =  session.get(Customer, customer_id)
+    if not customer_db:
+        raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "The customer doesn't exist")
+    return customer_db.plans
+    
