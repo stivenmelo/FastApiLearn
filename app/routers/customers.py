@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException, status
-from models import Customer, CustomerCreate, CustomerPlan, CustomerUpdate, Plan
+from fastapi import APIRouter, HTTPException, status,Query
+from models import Customer, CustomerCreate, CustomerPlan, CustomerUpdate, Plan, StatusEnum
 from db import SessionDep
 from sqlmodel import select 
 
@@ -60,7 +60,7 @@ async def customer_whit_id(id:int, session: SessionDep):
 
 
 @router.post('/customers/{customer_id}/plans/{plan_id}',response_model = CustomerPlan, tags = ['customers'])
-async def suscribe_customer_to_plan(customer_id: int ,plan_id: int,session: SessionDep):
+async def suscribe_customer_to_plan(customer_id: int ,plan_id: int ,session: SessionDep, plan_status: StatusEnum = Query()):
     customer_db = session.get(Customer, customer_id)
     pland_db = session.get(Plan, plan_id)
     
@@ -68,7 +68,7 @@ async def suscribe_customer_to_plan(customer_id: int ,plan_id: int,session: Sess
     if not customer_db or not pland_db:
         raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "The customer or plan doesn't exist")
     
-    customer_pland_db = CustomerPlan(plan_id = pland_db.id, customer_id = customer_db.id)
+    customer_pland_db = CustomerPlan(plan_id = pland_db.id, customer_id = customer_db.id, status = plan_status)
     session.add(customer_pland_db)
     session.commit()
     session.refresh(customer_pland_db)
@@ -76,9 +76,17 @@ async def suscribe_customer_to_plan(customer_id: int ,plan_id: int,session: Sess
 
 
 @router.get('/customers/{customer_id}/plans/',response_model = list[Plan], tags = ['customers'])
-async def customer_plans(customer_id: int ,session: SessionDep):
+async def customer_plans(customer_id: int ,session: SessionDep, plan_status: StatusEnum = Query()):
     customer_db =  session.get(Customer, customer_id)
+    
     if not customer_db:
         raise HTTPException(status_code = status.HTTP_404_NOT_FOUND, detail = "The customer doesn't exist")
-    return customer_db.plans
+    query = select(CustomerPlan).where(CustomerPlan.customer_id == customer_id).where(CustomerPlan.status == plan_status)
+    customer_plans_result = session.exec(query).all()
+    
+    plans_ids: list[int] = [customer_plan.plan_id for customer_plan in customer_plans_result] 
+    query_plans = select(Plan).where(Plan.id.in_(plans_ids))
+    plans = session.exec(query_plans).all()
+    
+    return plans
     
